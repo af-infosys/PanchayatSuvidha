@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import "./TaxRegisterReport.css";
 import TinyLoader from "../TinyLoader/TinyLoader";
+import { Download, Plus } from "lucide-react"; // Import icons if you are using lucide-react
 
 // Works with the existing sheet API's array-based records.
 // There are deliberately no changes to the backend field positions.
@@ -128,6 +129,8 @@ const makeRow = (record, index, projectId) => {
     ],
     waterLink: `/water/taxentry/${encodedRowId}`,
     taxLink: `/water/taxentry/${encodedRowId}`,
+    addReceiptLink: `/water/receipt/add/${encodedRowId}`, // Ensure this route exists
+    downloadReceiptLink: `/water/receipt/download/${encodedRowId}`, // Ensure this route exists
   };
 };
 
@@ -150,6 +153,47 @@ const ReceiptDetails = ({ row }) => (
       <strong>
         {row.receiptAmount === "—" ? "—" : `₹${row.receiptAmount}`}
       </strong>
+    </div>
+    <div
+      style={{
+        display: "flex",
+        gap: "8px",
+        marginTop: "8px",
+        justifyContent: "center",
+      }}
+    >
+      <a
+        href={row.addReceiptLink}
+        title="Add Receipt"
+        style={{
+          padding: "4px 8px",
+          background: "#e0f2fe",
+          color: "#0369a1",
+          borderRadius: "4px",
+          textDecoration: "none",
+          display: "flex",
+          alignItems: "center",
+          fontSize: "12px",
+        }}
+      >
+        <Plus size={14} style={{ marginRight: "4px" }} /> Add
+      </a>
+      <a
+        href={row.downloadReceiptLink}
+        title="Download Receipt"
+        style={{
+          padding: "4px 8px",
+          background: "#f0fdf4",
+          color: "#166534",
+          borderRadius: "4px",
+          textDecoration: "none",
+          display: "flex",
+          alignItems: "center",
+          fontSize: "12px",
+        }}
+      >
+        <Download size={14} style={{ marginRight: "4px" }} /> Download
+      </a>
     </div>
   </div>
 );
@@ -226,7 +270,7 @@ export default function TaxRegisterReport({
         <div className="trr-heading">
           <span className="trr-eyebrow">ગ્રામ્ય જળ અને સ્વચ્છતા સમિતિ</span>
           <h1>ખાસ પાણી નળ વેરા રજીસ્ટર</h1>
-          <p>વર્ષ {year} • (માંગણાં રજીસ્ટર)</p>
+          <p>વર્ષ {year}(માંગણાં રજીસ્ટર)</p>
         </div>
       </header>
 
@@ -294,10 +338,9 @@ export default function TaxRegisterReport({
               <thead>
                 <tr>
                   {[
-                    "ક્રમ નં.",
+                    "કનેક્શન નં.", // Changed from ક્રમ નં.
                     "વિસ્તારનું નામ",
-                    "કનેક્શન નં.",
-                    "જુનો મિ.નં.",
+                    // Removed જુનો મિ.નં.
                     "નળ ધારકનું નામ તથા મોબાઈલ",
                     "નળની સંખ્યા",
                     "પહોંચની વિગત",
@@ -311,8 +354,9 @@ export default function TaxRegisterReport({
                     </th>
                   ))}
                 </tr>
+                {/* Updated Index Row count since 2 columns were merged/removed */}
                 <tr className="trr-index-row">
-                  {Array.from({ length: 11 }, (_, index) => (
+                  {Array.from({ length: 9 }, (_, index) => (
                     <th key={index}>{index + 1}</th>
                   ))}
                 </tr>
@@ -322,13 +366,11 @@ export default function TaxRegisterReport({
                   <React.Fragment key={row.key}>
                     <tr className="trr-entry-start">
                       <td rowSpan={3} className="trr-serial">
-                        {row.serial}
+                        {row.connection} {/* Showing connection number here */}
                       </td>
                       <td rowSpan={3} className="trr-area">
                         {row.area}
                       </td>
-                      <td rowSpan={3}>{row.connection}</td>
-                      <td rowSpan={3}>{row.oldNumber}</td>
                       <td rowSpan={3} className="trr-owner">
                         <a
                           href={row.waterLink}
@@ -398,28 +440,26 @@ export default function TaxRegisterReport({
             </table>
           </div>
 
+          {/* Mobile View Update */}
           <div className="trr-mobile-list">
             {visibleRows.map((row) => (
               <article className="trr-card" key={row.key}>
                 <div className="trr-card-head">
                   <div>
                     <span className="trr-card-kicker">
-                      ક્રમ નં. {row.serial}
+                      કનેક્શન નં. {row.connection}
                     </span>
                     <h2>{row.owner}</h2>
                     <span className="trr-card-subtitle">{row.area}</span>
                   </div>
-                  <span className="trr-connection">#{row.connection}</span>
+                  {/* Removed duplicate connection number here if it's already in the kicker, or you can leave it */}
                 </div>
                 <dl className="trr-meta-grid">
                   <div>
                     <dt>મોબાઈલ</dt>
                     <dd>{row.mobile}</dd>
                   </div>
-                  <div>
-                    <dt>જુનો મિ.નં.</dt>
-                    <dd>{row.oldNumber}</dd>
-                  </div>
+                  {/* Removed જુનો મિ.નં. */}
                   <div>
                     <dt>નળની સંખ્યા</dt>
                     <dd>{row.tapCount}</dd>
@@ -437,13 +477,6 @@ export default function TaxRegisterReport({
                   >
                     પાણી વેરો ફોર્મ ↗
                   </a>
-                  {/* <a
-                    href={row.taxLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    કરવેરા ફોર્મ ↗
-                  </a> */}
                 </div>
               </article>
             ))}

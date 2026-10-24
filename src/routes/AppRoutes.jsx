@@ -7,9 +7,10 @@ import { useAuth } from "../config/AuthContext";
 import NotFound from "../components/NotFound";
 import TaxRegister from "../features/waterTax/TaxRegister";
 import TaxEntryForm from "../features/waterTax/TaxEntryForm";
+import DownloadReceipt from "../features/reciept/DownloadReceipt";
 
 export default function AppRoutes() {
-  const { user } = useAuth();
+  // const { user } = useAuth();
 
   return (
     <Routes>
@@ -26,6 +27,8 @@ export default function AppRoutes() {
         <Route path="water">
           <Route path="taxentry" element={<TaxRegister />} />
           <Route path="taxentry/:mId" element={<TaxEntryForm />} />
+          {/* <Route path="receipt/add/:mId" element={<TaxEntryForm />} /> */}
+          <Route path="receipt/download/:mId" element={<DownloadReceipt />} />
         </Route>
       </Route>
 

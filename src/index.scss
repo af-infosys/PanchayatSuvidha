@@ -17,3 +17,9 @@ code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
+
+.formatting {
+  position: relative;
+  transform: translateY(-7px) translateX(2px);
+  width: 100%;
+}
