@@ -1,10 +1,20 @@
 {
   "files": {
-    "main.css": "/static/css/main.81ff657a.css",
-    "main.js": "/static/js/main.a3693bbc.js",
+    "main.css": "/static/css/main.1685360a.css",
+    "main.js": "/static/js/main.6d2bb730.js",
     "static/js/977.e16474f9.chunk.js": "/static/js/977.e16474f9.chunk.js",
     "static/js/732.91455fb5.chunk.js": "/static/js/732.91455fb5.chunk.js",
     "static/js/453.99468223.chunk.js": "/static/js/453.99468223.chunk.js",
+    "static/media/content.png": "/static/media/content.c22b0e16437fdebb879e.png",
+    "static/media/icon.png": "/static/media/icon.311c3e9d779cafdf6ab6.png",
+    "static/media/bg.png": "/static/media/bg.e11b062113c19ad9c846.png",
+    "static/media/waterTax.png": "/static/media/waterTax.7ae5201d02b1b2ca8606.png",
+    "static/media/cleanTax.png": "/static/media/cleanTax.3aabeda015566e3fc1ab.png",
+    "static/media/logo.png": "/static/media/logo.65093e0a1514f8a465c0.png",
+    "static/media/KachaMakan.png": "/static/media/KachaMakan.48d30bd246c3006b6119.png",
+    "static/media/wale.png": "/static/media/wale.e2fa4b02db583a508589.png",
+    "static/media/lightTax.png": "/static/media/lightTax.9ccb560d2e3e798426a8.png",
+    "static/media/wale2.png": "/static/media/wale2.c6a9edfeef92ca61322a.png",
     "static/media/manage.png": "/static/media/manage.305d60fe50c399fff61b.png",
     "static/media/reminder.png": "/static/media/reminder.0ee0ab83378e9ee33e3d.png",
     "static/media/telecaller.png": "/static/media/telecaller.2ed50f5ddaba60548133.png",
@@ -13,20 +23,22 @@
     "static/media/project-management.png": "/static/media/project-management.790d4a6dbbef7c8eb5d5.png",
     "static/media/interested.png": "/static/media/interested.19f411e095bd0daef715.png",
     "static/media/customer.png": "/static/media/customer.067fe15deea5f343ce56.png",
+    "static/media/PakaMakan.png": "/static/media/PakaMakan.acd74bad96b4e2dff05d.png",
     "static/media/summary.png": "/static/media/summary.c1eeff22a900858fa9f4.png",
     "static/media/settings.png": "/static/media/settings.266092d3905d4f547f2e.png",
     "static/media/income.png": "/static/media/income.383090b6bba77dbe7dd6.png",
     "static/media/project.png": "/static/media/project.4372406f98e61b097930.png",
     "static/media/expense.png": "/static/media/expense.e0c59843096bb7a05c4c.png",
+    "static/media/House.png": "/static/media/House.640d0b1e39b36fd2550c.png",
     "index.html": "/index.html",
-    "main.81ff657a.css.map": "/static/css/main.81ff657a.css.map",
-    "main.a3693bbc.js.map": "/static/js/main.a3693bbc.js.map",
+    "main.1685360a.css.map": "/static/css/main.1685360a.css.map",
+    "main.6d2bb730.js.map": "/static/js/main.6d2bb730.js.map",
     "977.e16474f9.chunk.js.map": "/static/js/977.e16474f9.chunk.js.map",
     "732.91455fb5.chunk.js.map": "/static/js/732.91455fb5.chunk.js.map",
     "453.99468223.chunk.js.map": "/static/js/453.99468223.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.81ff657a.css",
-    "static/js/main.a3693bbc.js"
+    "static/css/main.1685360a.css",
+    "static/js/main.6d2bb730.js"
   ]
 }

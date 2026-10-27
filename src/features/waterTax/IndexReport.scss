@@ -1,0 +1,111 @@
+/* IndexReport.scss */
+
+.pdf-report-container table th,
+.pdf-report-container table td {
+  font-size: 14px; /* instead of text-sm (12px) */
+  padding: 6px 5px; /* instead of px-1 py-2 */
+  padding-top: 0;
+}
+
+.pdf-report-container .text-lg {
+  font-size: 18px;
+}
+.pdf-report-container .text-xl {
+  font-size: 20px;
+}
+#pdff {
+  background: #fff;
+  color: #000 !important;
+  border: 1px solid #000;
+}
+
+/* ========================================================= */
+/* ================ Visible Report Styles ================== */
+/* ========================================================= */
+
+.visible-report-container {
+  padding: 20px;
+  background-color: #f9fafb;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.page-numberN {
+  position: relative;
+  font-size: 14px;
+  font-family: sans-serif;
+  color: #333;
+
+  transform: translate(290px, -80px);
+  margin-bottom: 0;
+}
+
+.thead {
+  background-color: #e5e7eb;
+}
+
+.th,
+.td {
+  border: 1px solid #d1d5db;
+  padding: 10px;
+  text-align: left;
+
+  font-size: 15px;
+}
+
+.th {
+  font-weight: bold;
+  background-color: #f3f4f6;
+  text-align: center;
+}
+
+.tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.tbody tr:hover {
+  background-color: #e5e7eb;
+}
+
+.td {
+  vertical-align: top;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.initial-group {
+  padding: 2px 2px;
+}
+
+/* Responsive Table Styles */
+.table-responsive {
+  overflow-x: auto;
+}
+
+/* Media query for smaller screens */
+@media (max-width: 768px) {
+  .visible-report-container {
+    padding: 10px;
+  }
+
+  .report-table {
+    font-size: 12px;
+  }
+
+  .th,
+  .td {
+    padding: 8px;
+  }
+}
+
+.formatting {
+  position: relative;
+  transform: translateY(-7px) translateX(2px);
+  width: 100%;
+}

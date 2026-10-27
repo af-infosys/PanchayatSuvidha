@@ -145,30 +145,93 @@ const TaxEntryForm = () => {
         advance: { last: 0, chalu: 0 },
       },
     );
+
+
+  // 1. Naya Helper Function add karein (Isse calculate hoke taxes update honge)
+  const updateRecoveryFromReceipts = (receiptsList) => {
+    // Sabhi receipts ka total amount nikalna
+    const totalReceiptAmount = receiptsList.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+    setTaxes((prevTaxes) => prevTaxes.map(tax => {
+      // Ye logic sirf "ખાસ પાણી વેરો" (water_spl) par apply karna hai
+      if (tax.id === "water_spl") {
+        const demandPb = Number(tax.demand.pb) || 0;
+
+        let recPb = 0;
+        let recChalu = 0;
+
+        // Logic: Agar total amount demand.pb se kam ya barabar hai, 
+        // toh saara recovery.pb me jayega.
+        // Warna, recovery.pb full ho jayega aur baki bacha amount recovery.chalu me jayega.
+        if (totalReceiptAmount <= demandPb) {
+          recPb = totalReceiptAmount;
+          recChalu = 0;
+        } else {
+          recPb = demandPb;
+          recChalu = totalReceiptAmount - demandPb;
+        }
+
+        return {
+          ...tax,
+          recovery: {
+            ...tax.recovery,
+            pb: recPb,
+            chalu: recChalu
+          }
+        };
+      }
+      return tax;
+    }));
+  };
+
+
   const handleTaxChange = (index, section, field, value) => {
     const updatedTaxes = [...taxes];
     updatedTaxes[index][section][field] = Number(value);
     setTaxes(updatedTaxes);
     setIsSaved(false);
   };
+
+
   const handleReceiptChange = (index, event) => {
     const { name, value } = event.target;
-    setReceiptDetails((prev) =>
-      prev.map((receipt, i) =>
+    setReceiptDetails((prev) => {
+      const updatedReceipts = prev.map((receipt, i) =>
         i === index ? { ...receipt, [name]: value } : receipt,
-      ),
-    );
+      );
+
+      // Agar receipt ka 'amount' change ho raha hai, tabhi recovery logic chalayein
+      if (name === "amount") {
+        updateRecoveryFromReceipts(updatedReceipts);
+      }
+
+      return updatedReceipts;
+    });
     setIsSaved(false);
   };
+
+
+
+  // 3. Apne purane removeReceipt ko isse replace karein
+  const removeReceipt = (index) => {
+    setReceiptDetails((prev) => {
+      const updatedReceipts = prev.filter((_, i) => i !== index);
+
+      // Jab koi receipt delete ho, toh bhi automatically recovery wapas set ho jaye
+      updateRecoveryFromReceipts(updatedReceipts);
+
+      return updatedReceipts;
+    });
+    setIsSaved(false);
+  };
+
+  // (purana addReceipt waisa hi rahega)
   const addReceipt = () => {
     focusNewReceiptRef.current = true;
     setReceiptDetails((prev) => [...prev, createEmptyReceipt()]);
     setIsSaved(false);
   };
-  const removeReceipt = (index) => {
-    setReceiptDetails((prev) => prev.filter((_, i) => i !== index));
-    setIsSaved(false);
-  };
+
   // Form state
   const [formData, setFormData] = useState({});
   const [query, setQuery] = useState("");
@@ -323,10 +386,10 @@ const TaxEntryForm = () => {
         setReceiptDetails(
           receiptArray.length
             ? receiptArray.map((receipt) => ({
-                pNo: String(receipt?.pNo ?? ""),
-                date: String(receipt?.date ?? "").slice(0, 10),
-                amount: String(receipt?.amount ?? ""),
-              }))
+              pNo: String(receipt?.pNo ?? ""),
+              date: String(receipt?.date ?? "").slice(0, 10),
+              amount: String(receipt?.amount ?? ""),
+            }))
             : [createEmptyReceipt()],
         );
       } else {

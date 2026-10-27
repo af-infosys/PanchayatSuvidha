@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import "./TaxRegisterReport.css";
 import TinyLoader from "../TinyLoader/TinyLoader";
-import { Download, Plus } from "lucide-react"; // Import icons if you are using lucide-react
+import { Download, Plus } from "lucide-react";
 
 // Works with the existing sheet API's array-based records.
 // There are deliberately no changes to the backend field positions.
@@ -38,8 +38,8 @@ const formatMoney = (value) => {
   return number === null
     ? displayText(value)
     : new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(
-        number,
-      );
+      number,
+    );
 };
 
 const formatReceiptDate = (date) => {
@@ -129,7 +129,7 @@ const makeRow = (record, index, projectId) => {
     ],
     waterLink: `/water/taxentry/${encodedRowId}`,
     taxLink: `/water/taxentry/${encodedRowId}`,
-    addReceiptLink: `/water/receipt/add/${encodedRowId}`, // Ensure this route exists
+    addReceiptLink: `/water/taxentry/${encodedRowId}`, // Ensure this route exists
     downloadReceiptLink: `/water/receipt/download/${encodedRowId}`, // Ensure this route exists
   };
 };

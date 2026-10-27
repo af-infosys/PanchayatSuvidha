@@ -232,7 +232,7 @@ export default function DashboardLayout() {
                       alt="Customer List"
                       style={{ width: "23px" }}
                     />
-                    વેરા એન્ટ્રી
+                    પહોંચ એન્ટ્રી
                   </NavLink>
                   <NavLink
                     to={`/water/taxregister`}
@@ -248,7 +248,20 @@ export default function DashboardLayout() {
                   </NavLink>
 
                   <NavLink
-                    to={"/staff/billwork"}
+                    to={"/water/indexreport"}
+                    className={({ isActive }) => (isActive ? "active" : "")}
+                    onClick={() => setIsSidebarOpen(false)}
+                  >
+                    <img
+                      src={ProjectManagementIcon}
+                      alt="Customer List"
+                      style={{ width: "23px" }}
+                    />
+                    પનોત્રી બૂક
+                  </NavLink>
+
+                  <NavLink
+                    to={"/water/tarijreport"}
                     className={({ isActive }) => (isActive ? "active" : "")}
                     onClick={() => setIsSidebarOpen(false)}
                   >
