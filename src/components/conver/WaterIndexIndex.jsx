@@ -110,7 +110,7 @@ const WaterIndexIndex = ({
           {commercial ? "(કોમર્શિયલ)" : commercial === false ? "(રહેણાંક)" : ""}
         </h1>
         <h2 className="text-2xl font-semibold mt-2 text-gray-700">
-          સને :- {project?.details?.taxYear || "2025/26"}
+          ગ્રામ્ય જળ અને સ્વચ્છતા સમિતિ વર્ષ :- {project?.details?.taxYear || "2025/26"}
         </h2>
       </div>
 

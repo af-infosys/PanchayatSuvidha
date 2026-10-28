@@ -5,8 +5,10 @@ import apiPath from "../../isProduction";
 import "./IndexReport.scss";
 import { toast } from "react-toastify";
 import axios from "axios";
-import { useParams } from "react-router-dom";
 import toGujaratiNumber from "../../components/toGujaratiNumber";
+
+import { useAuth } from "../../config/AuthContext";
+
 
 import WaterIndexIndex from "../../components/conver/WaterIndexIndex";
 
@@ -30,7 +32,28 @@ const IndexReport = () => {
     const district = project?.spot?.district;
     const background = "#007bff";
 
-    const { projectId } = useParams();
+    const [projectId, setProjectId] = useState();
+    const { user } = useAuth();
+
+
+    const fetchWork = async () => {
+        try {
+            fetch(`${await apiPath()}/api/work/${user.id}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+            })
+                .then((res) => res.json())
+                .then(async (data) => {
+                    setProjectId(data?.work?._id);
+                    console.log("Project ID:", data?.work?._id);
+                });
+        } catch (error) {
+            console.error("Error fetching work:", error);
+        }
+    };
 
     const fetchProject = async () => {
         try {
@@ -222,10 +245,16 @@ const IndexReport = () => {
         }
     };
 
+
     useEffect(() => {
+        fetchWork();
+    }, [user]);
+
+    useEffect(() => {
+        if (!projectId) return
         fetchRecords();
         fetchProject();
-    }, []);
+    }, [projectId]);
 
     // ------------------------------------------------------------------
     // 🌟 EXACT AKARNI PAGE MAPPING LOGIC (Based on Reference Component)
@@ -840,7 +869,7 @@ const IndexReport = () => {
                                                 : ""}
                                     </h1>
                                     <h2 className="subheading">
-                                        સને {project?.details?.taxYear || "૨૦૨૫/૨૬"}
+                                        ગ્રામ્ય જળ અને સ્વચ્છતા સમિતિ વર્ષ {project?.details?.taxYear || "૨૦૨૫/૨૬"}
                                     </h2>
 
                                     <span

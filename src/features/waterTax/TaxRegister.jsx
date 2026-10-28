@@ -16,12 +16,14 @@ import TaxIndex from "../../components/conver/TaxIndex";
 
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import TaxIndexRaw from "../../components/conver/TaxIndexRaw";
-import Blank9D from "../../components/Blank9D";
+// import Blank9D from "../../components/Blank9D";
+import WaterTaxIndexRaw from "../../components/conver/WaterTaxIndexRaw";
+import WaterBlank9D from "../../components/WaterBlank9D";
+import { useAuth } from "../../config/AuthContext";
 
 const TaxRegister = () => {
   const [count, setCount] = useState(5);
-  const [PROPERTIES_PER_PAGE, SetPropertiesPerPage] = useState(6); // એક પેજ પર કેટલી લાઇન બતાવવી
+  const [PROPERTIES_PER_PAGE, SetPropertiesPerPage] = useState(5); // એક પેજ પર કેટલી લાઇન બતાવવી
 
   const scrollToPage = () => {
     const element = document.getElementById(`report-page-${count}`);
@@ -39,6 +41,28 @@ const TaxRegister = () => {
   }, [count, setCount]);
 
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const fetchWork = async () => {
+    try {
+      fetch(`${await apiPath()}/api/work/${user.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+        .then((res) => res.json())
+        .then(async (data) => {
+          setProjectId(data?.work?._id);
+          console.log("Project ID:", data?.work?._id);
+        });
+    } catch (error) {
+      console.error("Error fetching work:", error);
+    }
+  };
+
+
 
   const [records, setRecords] = useState([]);
 
@@ -49,7 +73,7 @@ const TaxRegister = () => {
   const fetchRecords = async () => {
     try {
       const response = await fetch(
-        `${await apiPath()}/api/sheet?workId=${projectId}`,
+        `${await apiPath()}/api/dataentry?workId=${projectId}`,
         {
           method: "GET",
           headers: {
@@ -75,7 +99,7 @@ const TaxRegister = () => {
   };
 
   const [project, setProject] = useState([]);
-  const { projectId } = useParams();
+  const [projectId, setProjectId] = useState(null);
   const [taxes, setTaxes] = useState([]);
 
   const fetchProject = async () => {
@@ -95,7 +119,7 @@ const TaxRegister = () => {
       setProject(data?.data?.data || []);
     } catch (error) {
       console.error("Error fetching projects:", error);
-      toast.error(`Error Fetching Projects: ${error}`);
+      // toast.error(`Error Fetching Projects: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -107,7 +131,7 @@ const TaxRegister = () => {
       toast.info("Calucating Values...");
 
       const data = await axios.put(
-        `${await apiPath()}/api/sheet/ordervaluation/${projectId}`,
+        `${await apiPath()}/api/survey/ordervaluation/${projectId}`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -122,7 +146,8 @@ const TaxRegister = () => {
       toast.success("Calculation Completed.");
     } catch (error) {
       console.error("Error fetching projects:", error);
-      toast.error(`Error Fetching Projects: ${error}`);
+      // toast.error(`Error Fetching Projects: ${error}`);
+
     } finally {
       setLoading(false);
     }
@@ -142,7 +167,6 @@ const TaxRegister = () => {
       );
 
       fetchedData = fetchedData?.data?.taxes;
-      console.log(fetchedData);
 
       if (fetchedData && fetchedData.length > 0) {
         setTaxes(fetchedData);
@@ -152,17 +176,23 @@ const TaxRegister = () => {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Error Fetching Taxes Data.");
+      // toast.error("Error Fetching Taxes Data.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    fetchWork();
+  }, [user]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
     fetchProject();
     fetchRecords();
     fetchTaxes();
-  }, []);
+  }, [projectId]);
 
   const [pdfProgress, setPdfProgress] = useState({
     isGenerating: false,
@@ -378,6 +408,15 @@ const TaxRegister = () => {
     );
   }
 
+  // Paginate records into chunks of 15
+
+  // const pages = [];
+  // const pageLimit = 6;
+
+  // for (let i = 0; i < records.length; i += pageLimit) {
+  //   pages.push(records.slice(i, i + pageLimit));
+  // }
+
   const commercialCategories = [
     "દુકાન",
     "પ્રાઈવેટ - સંસ્થાઓ",
@@ -435,6 +474,10 @@ const TaxRegister = () => {
 
   function buildFinalPages(allRecords, pagesPerBundle, recordsPerPage) {
     if (!allRecords || allRecords.length === 0) return [];
+    // count all tab connection from allRecords[i][12]
+    const totalTabConn = allRecords.reduce((sum, record) => {
+      return sum + (Number(record[12]) || 0);
+    }, 0);
 
     const final = [];
     const isSeparate = project?.details?.seperatecommercial === true;
@@ -484,29 +527,33 @@ const TaxRegister = () => {
         const pageFrom = globalPageNumber;
         const pageTo = globalPageNumber + pagesForThisBundle.length - 1;
 
-        final.push({
-          type: "cover",
-          bundle: currentBundle,
-          name: "રહેણાંક મિલકત",
-          commercial: false,
-          totalRecords: normalRecords.length,
-          section: "residential",
-          part: b,
-          totalParts: totalNormalBundles,
+        if (pagesForThisBundle.length > 0) {
+          final.push({
+            type: "cover",
+            bundle: currentBundle,
+            name: "રહેણાંક મિલકત",
+            commercial: false,
+            totalRecords: normalRecords.length,
+            section: "residential",
+            part: b,
+            totalParts: totalNormalBundles,
 
-          fromStart: pagesForThisBundle[0][0][0],
-          toEnd:
-            pagesForThisBundle[pagesForThisBundle.length - 1][
-            pagesForThisBundle[pagesForThisBundle.length - 1].length - 1
-            ][0],
+            fromStart: pagesForThisBundle[0][0][0],
+            toEnd:
+              pagesForThisBundle[pagesForThisBundle.length - 1][
+              pagesForThisBundle[pagesForThisBundle.length - 1].length - 1
+              ][0],
 
-          // 👇 NEW
-          coverProperties,
-          pageFrom,
-          pageTo,
-        });
+            // 👇 NEW
+            coverProperties,
+            pageFrom,
+            pageTo,
 
-        pagesForThisBundle.forEach((pageRecs) => {
+            totalTabConn: totalTabConn,
+          });
+        }
+
+        pagesForThisBundle?.forEach((pageRecs) => {
           final.push({
             type: "page",
             bundle: currentBundle,
@@ -517,17 +564,20 @@ const TaxRegister = () => {
           globalPageNumber++;
         });
 
-        currentBundle++;
+        if (pagesForThisBundle.length > 0) currentBundle++;
       }
 
-      final.push({
-        type: "blank",
-        isCommercial: false,
-      });
-      final.push({
-        type: "blank",
-        isCommercial: false,
-      });
+      if (normalPages?.length > 0) {
+        final.push({
+          type: "blank",
+          isCommercial: false,
+        });
+        final.push({
+          type: "blank",
+          isCommercial: false,
+        });
+      }
+
       // ---------- COMMERCIAL ----------
       if (commercialPages.length > 0) {
         const totalCommBundles = Math.ceil(
@@ -568,6 +618,8 @@ const TaxRegister = () => {
             coverProperties,
             pageFrom,
             pageTo,
+
+            totalTabConn: totalTabConn,
           });
 
           pagesForThisBundle.forEach((pageRecs) => {
@@ -631,6 +683,8 @@ const TaxRegister = () => {
           coverProperties,
           pageFrom,
           pageTo,
+
+          totalTabConn: totalTabConn,
         });
 
         pagesForThisBundle.forEach((records) => {
@@ -668,275 +722,136 @@ const TaxRegister = () => {
 
     const getNum = (val) => Number(val) || 0;
 
-    // 1. Title Row (Ab sabse pehle)
+    // 1. Title Row
     const titleRow = [
       [
-        `ગામનો નમુના નંબર ૯ ડી - કરવેરા રજીસ્ટર - સને ${project?.details?.taxYear || "2026/27"}`,
+        `ગ્રામ્ય જળ અને સ્વચ્છતા સમિતિ - ખાસ પાણી નળ વેરા રજીસ્ટર વર્ષ ${project?.details?.taxYear || "2025/26"
+        }`,
       ],
     ];
 
-    // 2. Location Row (Title ke baad)
+    // 2. Location Row (Distributed in 12 columns)
     const locationRow = [
       [
-        `ગામ:- ${project?.spot?.gaam || ""}`,
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        `તાલુકો:- ${project?.spot?.taluka || ""}`,
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        `જિલ્લો:- ${project?.spot?.district || ""}`,
-        "",
-        "",
-        "",
-        "",
-        "",
+        `ગામ:- ${project?.spot?.gaam || ""}`, "", "", "",
+        `તાલુકો:- ${project?.spot?.taluka || ""}`, "", "", "",
+        `જિલ્લો:- ${project?.spot?.district || ""}`, "", "", "",
       ],
     ];
 
-    // 3. Header Rows
+    // 3. Header Row (12 Columns exactly as per HTML table)
     const headerRow1 = [
-      "ખાતાનો નંબર",
-      "પ્રોપર્ટી નંબર",
-      "એરિયાનું નામ",
-      "ખાતેદારનું નામ",
-      "પહોંચ નંબર તારીખ રકમ",
+      "ક્રમ નંબર",
+      "વિસ્તારનું નામ",
+      "કનેકશન નંબર",
+      "નળ ધારકનું નામ તથા મોબાઈલ નંબર",
+      "જુનો કનેક્શન નંબર",
+      "નળની સંખ્યા",
+      "પહોચ નં. / તારીખ રકમ",
       "વિગત",
-      "ઘર વેરો",
-      "",
-      "",
-      "સામાન્ય પાણી વેરો",
-      "",
-      "",
-      "ખાસ પાણી નળ વેરો",
-      "",
-      "",
-      "દિવાબતી લાઈટ વેરો",
-      "",
-      "",
-      "સફાઈ વેરો",
-      "",
-      "",
-      "કુલ એકંદર",
-      "",
-      "",
-      "ગઈ સાલના જાદે",
+      "પા.બા",
+      "ચાલુ",
+      "કુલ",
+      "નોંધ",
     ];
 
-    const headerRow2 = [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "", // First 6 columns blank
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // ઘર વેરો
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // સામાન્ય પાણી વેરો
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // ખાસ પાણી નળ વેરો
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // દિવાબતી લાઈટ વેરો
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // સફાઈ વેરો
-      "પા.બા",
-      "ચાલુ",
-      "કુલ", // કુલ એકંદર
-      "", // ગઈ સાલના જાદે
-    ];
-
-    // Numbering in English digits
-    const headerNumbers = [Array.from({ length: 25 }, (_, i) => i + 1)];
+    // 4. Numbering Row (1 to 12)
+    const headerNumbers = [Array.from({ length: 12 }, (_, i) => i + 1)];
 
     const dataRows = [];
 
-    // Update Merges logic as per Title first
+    // Merges configuration
     const merges = [
-      // Header Merges
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 24 } }, // Title (Now Row 0)
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }, // ગામ (Now Row 1)
-      { s: { r: 1, c: 9 }, e: { r: 1, c: 18 } }, // તાલુકો
-      { s: { r: 1, c: 19 }, e: { r: 1, c: 24 } }, // જિલ્લો
-
-      // Column spans for Tax Headers (Row 2)
-      { s: { r: 2, c: 6 }, e: { r: 2, c: 8 } },
-      { s: { r: 2, c: 9 }, e: { r: 2, c: 11 } },
-      { s: { r: 2, c: 12 }, e: { r: 2, c: 14 } },
-      { s: { r: 2, c: 15 }, e: { r: 2, c: 17 } },
-      { s: { r: 2, c: 18 }, e: { r: 2, c: 20 } },
-      { s: { r: 2, c: 21 }, e: { r: 2, c: 23 } },
-
-      // Row spans for Base Columns (Row 2 & 3)
-      { s: { r: 2, c: 0 }, e: { r: 3, c: 0 } }, // ખાતાનો નંબર
-      { s: { r: 2, c: 1 }, e: { r: 3, c: 1 } }, // પ્રોપર્ટી નંબર
-      { s: { r: 2, c: 2 }, e: { r: 3, c: 2 } }, // એરિયાનું નામ
-      { s: { r: 2, c: 3 }, e: { r: 3, c: 3 } }, // ખાતેદારનું નામ
-      { s: { r: 2, c: 4 }, e: { r: 3, c: 4 } }, // પહોંચ નંબર
-      { s: { r: 2, c: 5 }, e: { r: 3, c: 5 } }, // વિગત
-      { s: { r: 2, c: 24 }, e: { r: 3, c: 24 } }, // ગઈ સાલના જાદે
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }, // Title span 12 cols
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 3 } },  // ગામ span
+      { s: { r: 1, c: 4 }, e: { r: 1, c: 7 } },  // તાલુકો span
+      { s: { r: 1, c: 8 }, e: { r: 1, c: 11 } }, // જિલ્લો span
     ];
 
-    let currentRowIndex = 5;
+    // Data starts at row index 4 (0: Title, 1: Location, 2: Header, 3: Numbers)
+    let currentRowIndex = 4;
 
-    // Variables to hold Footer Totals
-    const grandTotals = [
-      Array(25).fill(0), // Demand totals
-      Array(25).fill(0), // Recovery totals
-      Array(25).fill(0), // Balance totals
-    ];
+    // Variables for Grand Totals
+    const grandTotals = {
+      d_pb: 0, d_chalu: 0, d_kul: 0,
+      r_pb: 0, r_chalu: 0, r_kul: 0,
+      b_pb: 0, b_chalu: 0, b_kul: 0,
+    };
 
     records?.forEach((record) => {
       const parsed21 = safeParse(record[21]);
-      const parsed22 = safeParse(record[22]);
       const parsed23 = safeParse(record[23]);
       const parsed24 = safeParse(record[24]);
-      const parsed25 = safeParse(record[25]);
-      const parsed26 = safeParse(record[26]);
 
-      const commonInfo = [
-        record[0] || "", // 0: ખાતાનો નંબર
-        record[2] || "", // 1: પ્રોપર્ટી નંબર
-        record[1] || "", // 2: એરિયાનું નામ
-        record[3] || "", // 3: ખાતેદારનું નામ
-        "", // 4: પહોંચ નંબર (Will remain unmerged and blank)
-      ];
+      // Extract Common Record Info
+      const kram = getNum(record[2]);
+      const area = record[1] || "";
+      const conn = getNum(record[0]);
+      const nameMob = `${record[3] || ""}\n${record[6] || ""}`.trim();
+      const oldConn = getNum(record[5]);
+      const taps = getNum(record[12]);
+      const note = record[14] || "";
 
-      // ====== ROW 1: માંગણું (Demand) ======
-      const r1_ghar_prev = getNum(record[22]);
-      const r1_ghar_curr = getNum(record[20]);
-      const r1_samanya_prev = getNum(parsed23?.normal_water?.prev);
-      const r1_samanya_curr = getNum(parsed21?.normal_water?.curr);
-      const r1_khas_prev = getNum(parsed23?.special_water?.prev);
-      const r1_khas_curr = getNum(parsed21?.special_water?.curr);
-      const r1_light_prev = getNum(parsed23?.light?.prev);
-      const r1_light_curr = getNum(parsed21?.light?.curr);
-      const r1_safai_prev = getNum(parsed23?.cleaning?.prev);
-      const r1_safai_curr = getNum(parsed21?.cleaning?.curr);
+      // Receipt details extraction
+      const receipts = parsed24?.receipt;
+      let pNo = "", dateStr = "", amountStr = "";
 
-      const r1_kul_prev =
-        r1_ghar_prev +
-        r1_samanya_prev +
-        r1_khas_prev +
-        r1_light_prev +
-        r1_safai_prev;
-      const r1_kul_curr =
-        r1_ghar_curr +
-        r1_samanya_curr +
-        r1_khas_curr +
-        r1_light_curr +
-        r1_safai_curr;
+      const formatDate = (date) =>
+        date ? date.replace(/"/g, "").trim().split("-").reverse().join("/") : "";
 
-      const row1 = [
-        ...commonInfo,
-        "માંગણું",
-        r1_ghar_prev,
-        r1_ghar_curr,
-        r1_ghar_prev + r1_ghar_curr,
-        r1_samanya_prev,
-        r1_samanya_curr,
-        r1_samanya_prev + r1_samanya_curr,
-        r1_khas_prev,
-        r1_khas_curr,
-        r1_khas_prev + r1_khas_curr,
-        r1_light_prev,
-        r1_light_curr,
-        r1_light_prev + r1_light_curr,
-        r1_safai_prev,
-        r1_safai_curr,
-        r1_safai_prev + r1_safai_curr,
-        r1_kul_prev,
-        r1_kul_curr,
-        r1_kul_prev + r1_kul_curr,
-        "", // ગઈ સાલના જાદે
-      ];
-
-      // ====== ROW 2: વસુલાત (Recovery) ======
-      const row2 = [
-        "",
-        "",
-        "",
-        "",
-        "",
-        "વસુલાત",
-        getNum(parsed21?.[1]?.prev),
-        getNum(parsed21?.[1]?.curr),
-        getNum(parsed21?.[1]?.prev) + getNum(parsed21?.[1]?.curr),
-        getNum(parsed22?.[1]?.prev),
-        getNum(parsed22?.[1]?.curr),
-        getNum(parsed22?.[1]?.prev) + getNum(parsed22?.[1]?.curr),
-        getNum(parsed23?.[1]?.prev),
-        getNum(parsed23?.[1]?.curr),
-        getNum(parsed23?.[1]?.prev) + getNum(parsed23?.[1]?.curr),
-        getNum(parsed24?.[1]?.prev),
-        getNum(parsed24?.[1]?.curr),
-        getNum(parsed24?.[1]?.prev) + getNum(parsed24?.[1]?.curr),
-        getNum(parsed25?.[1]?.prev),
-        getNum(parsed25?.[1]?.curr),
-        getNum(parsed25?.[1]?.prev) + getNum(parsed25?.[1]?.curr),
-        getNum(parsed26?.[1]?.prev),
-        getNum(parsed26?.[1]?.curr),
-        getNum(parsed26?.[1]?.prev) + getNum(parsed26?.[1]?.curr),
-        "",
-      ];
-
-      // ====== ROW 3: બાકી (Balance) ======
-      const row3 = [
-        "",
-        "",
-        "",
-        "",
-        "",
-        "બાકી",
-        getNum(parsed21?.[1]?.prev),
-        getNum(parsed21?.[1]?.curr),
-        getNum(parsed21?.[1]?.prev) + getNum(parsed21?.[1]?.curr),
-        getNum(parsed22?.[1]?.prev),
-        getNum(parsed22?.[1]?.curr),
-        getNum(parsed22?.[1]?.prev) + getNum(parsed22?.[1]?.curr),
-        getNum(parsed23?.[1]?.prev),
-        getNum(parsed23?.[1]?.curr),
-        getNum(parsed23?.[1]?.prev) + getNum(parsed23?.[1]?.curr),
-        getNum(parsed24?.[1]?.prev),
-        getNum(parsed24?.[1]?.curr),
-        getNum(parsed24?.[1]?.prev) + getNum(parsed24?.[1]?.curr),
-        getNum(parsed25?.[1]?.prev),
-        getNum(parsed25?.[1]?.curr),
-        getNum(parsed25?.[1]?.prev) + getNum(parsed25?.[1]?.curr),
-        getNum(parsed26?.[1]?.prev),
-        getNum(parsed26?.[1]?.curr),
-        getNum(parsed26?.[1]?.prev) + getNum(parsed26?.[1]?.curr),
-        "",
-      ];
-
-      // Summing values into Grand Totals array (cols 6 to 23)
-      for (let i = 6; i <= 23; i++) {
-        grandTotals[0][i] += Number(row1[i]) || 0;
-        grandTotals[1][i] += Number(row2[i]) || 0;
-        grandTotals[2][i] += Number(row3[i]) || 0;
+      if (Array.isArray(receipts)) {
+        pNo = receipts.map((r) => r?.pNo).filter(Boolean).join(", ");
+        dateStr = receipts.map((r) => formatDate(r?.date)).filter(Boolean).join(", ");
+        amountStr = receipts.map((r) => r?.amount).filter(Boolean).join(", ");
+      } else if (receipts) {
+        pNo = receipts?.pNo || "";
+        dateStr = formatDate(receipts?.date);
+        amountStr = receipts?.amount || "";
       }
+
+      // Calculations for Special Water Tax (as per HTML logic)
+      const d_pb = getNum(parsed23?.special_water?.prev);
+      const d_chalu = getNum(parsed21?.special_water?.curr);
+      const d_kul = d_pb + d_chalu;
+
+      const r_pb = getNum(parsed23?.special_water?.vasulat);
+      const r_chalu = getNum(parsed21?.special_water?.vasulat);
+      const r_kul = r_pb + r_chalu;
+
+      const b_pb = d_pb - r_pb;
+      const b_chalu = d_chalu - r_chalu;
+      const b_kul = b_pb + b_chalu;
+
+      // Update Grand Totals
+      grandTotals.d_pb += d_pb;
+      grandTotals.d_chalu += d_chalu;
+      grandTotals.d_kul += d_kul;
+      grandTotals.r_pb += r_pb;
+      grandTotals.r_chalu += r_chalu;
+      grandTotals.r_kul += r_kul;
+      grandTotals.b_pb += b_pb;
+      grandTotals.b_chalu += b_chalu;
+      grandTotals.b_kul += b_kul;
+
+      // ====== ROW 1: માંગણું ======
+      const row1 = [
+        kram, area, conn, nameMob, oldConn, taps, pNo, "માંગણું", d_pb, d_chalu, d_kul, note
+      ];
+
+      // ====== ROW 2: વસુલાત ======
+      const row2 = [
+        "", "", "", "", "", "", dateStr, "વસુલાત", r_pb, r_chalu, r_kul, ""
+      ];
+
+      // ====== ROW 3: બાકી ======
+      const row3 = [
+        "", "", "", "", "", "", amountStr, "બાકી", b_pb, b_chalu, b_kul, ""
+      ];
 
       dataRows.push(row1, row2, row3);
 
-      // Vertical Merges (Removed Index 4 - પહોંચ નંબર)
-      [0, 1, 2, 3, 24].forEach((colIndex) => {
+      // Vertical Merges (spanning 3 rows) for columns: 0, 1, 2, 3, 4, 5, and 11
+      [0, 1, 2, 3, 4, 5, 11].forEach((colIndex) => {
         merges.push({
           s: { r: currentRowIndex, c: colIndex },
           e: { r: currentRowIndex + 2, c: colIndex },
@@ -948,50 +863,37 @@ const TaxRegister = () => {
 
     // ====== FOOTER ROWS (Grand Totals) ======
     const footerRow1 = [
-      "કુલ",
-      "",
-      "",
-      "",
-      "",
-      "માંગણું",
-      ...grandTotals[0].slice(6, 24),
-      "",
+      "પાનાનું કુલ", "", "", "", "", "", "", "માંગણું",
+      grandTotals.d_pb, grandTotals.d_chalu, grandTotals.d_kul, ""
     ];
     const footerRow2 = [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "વસુલાત",
-      ...grandTotals[1].slice(6, 24),
-      "",
+      "", "", "", "", "", "", "", "વસુલાત",
+      grandTotals.r_pb, grandTotals.r_chalu, grandTotals.r_kul, ""
     ];
     const footerRow3 = [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "બાકી",
-      ...grandTotals[2].slice(6, 24),
-      "",
+      "", "", "", "", "", "", "", "બાકી",
+      grandTotals.b_pb, grandTotals.b_chalu, grandTotals.b_kul, ""
     ];
 
     dataRows.push(footerRow1, footerRow2, footerRow3);
 
-    // Merge the first 5 columns of the Footer to show "કુલ" dynamically centered
+    // Merge Footer Text "પાનાનું કુલ" across col 0 to 6
     merges.push({
       s: { r: currentRowIndex, c: 0 },
-      e: { r: currentRowIndex + 2, c: 4 },
+      e: { r: currentRowIndex + 2, c: 6 },
     });
 
-    // Create Data Array
+    // Merge Note block in footer
+    merges.push({
+      s: { r: currentRowIndex, c: 11 },
+      e: { r: currentRowIndex + 2, c: 11 },
+    });
+
+    // Combine all arrays
     const worksheetData = [
-      ...titleRow, // Title first
-      ...locationRow, // Location second
+      ...titleRow,
+      ...locationRow,
       headerRow1,
-      headerRow2,
       ...headerNumbers,
       ...dataRows,
     ];
@@ -1000,7 +902,7 @@ const TaxRegister = () => {
     worksheet["!merges"] = merges;
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Karvera Register");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Water Tax Register");
 
     const excelBuffer = XLSX.write(workbook, {
       bookType: "xlsx",
@@ -1011,7 +913,7 @@ const TaxRegister = () => {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
     });
 
-    saveAs(file, "Karvera_Register_9D.xlsx");
+    saveAs(file, "Water_Tax_Register.xlsx");
   };
 
   return (
@@ -1092,10 +994,10 @@ const TaxRegister = () => {
       )}
       <br /> <br />
       <button
-        onClick={() => navigate(`/survay/taxform/${projectId}`)}
+        onClick={() => navigate(`/survay/watertaxform/${projectId}`)}
         className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
       >
-        Tax Entry Form
+        Water Tax Entry Form
       </button>
       <br /> <br />
       <button
@@ -1163,6 +1065,8 @@ const TaxRegister = () => {
       <br />
       <br />
       <div className="pdf-report-container">
+        {!finalRenderPages ? "Loading" : null}
+
         {finalRenderPages.map((item, idx) => {
           if (
             pdfProgress.isGenerating &&
@@ -1201,7 +1105,7 @@ const TaxRegister = () => {
                     toEnd={item.toEnd}
                   />
                 ) : (
-                  <TaxIndexRaw
+                  <WaterTaxIndexRaw
                     part={item.bundle}
                     project={project}
                     totalHoouse={records?.length}
@@ -1214,6 +1118,7 @@ const TaxRegister = () => {
                     pageTo={item.pageTo}
                     fromStart={item.fromStart}
                     toEnd={item.toEnd}
+                    totalTabConn={item?.totalTabConn || 0}
                   />
                 )}
               </div>
@@ -1221,7 +1126,7 @@ const TaxRegister = () => {
           }
 
           if (item.type === "blank") {
-            return <Blank9D item={item} project={project} id={id} />;
+            return <WaterBlank9D item={item} project={project} id={id} />;
           }
 
           return (
@@ -1230,19 +1135,17 @@ const TaxRegister = () => {
               id={id}
               className="report-page legal-landscape-dimensions"
               style={{
-                width: "1700px",
+                width: "1550px",
                 paddingTop: "55px",
-
-                paddingLeft: "45px",
-                paddingRight: "0px",
+                paddingLeft: "50px",
+                paddingRight: "50px",
+                margin: "0 auto", // Centre alignment ke liye
               }}
             >
               <div
                 className="watermark"
                 style={{ minHeight: "100%", position: "relative" }}
               >
-                {/* Headers and Page Count */}
-
                 <div className="page-header-container">
                   <span
                     className="page-number"
@@ -1256,13 +1159,8 @@ const TaxRegister = () => {
                   </span>
 
                   <h1 className="heading" style={{ marginTop: "32px" }}>
-                    ગામનો નમુના નંબર ૯ડી કરવેરા રજીસ્ટર{" "}
-                    {item.isCommercial === true
-                      ? " - કોમર્શિયલ મિલ્કત"
-                      : item.isCommercial === false
-                        ? " - રહેણાંક મિલ્કત"
-                        : ""}{" "}
-                    | સને {project?.details?.taxYear || "૨૦૨૫/૨૬"}
+                    ગ્રામ્ય જળ અને સ્વચ્છતા સમિતિ - ખાસ પાણી નળ વેરા રજીસ્ટર
+                    વર્ષ {project?.details?.taxYear || "૨૦૨૫/૨૬"}
                   </h1>
 
                   <div
@@ -1274,177 +1172,73 @@ const TaxRegister = () => {
                     }}
                   >
                     <span>ગામ:- {project?.spot?.gaam}</span>
-
                     <span>તાલુકો:- {project?.spot?.taluka}</span>
-
                     <span>જિલ્લો:- {project?.spot?.district}</span>
                   </div>
                 </div>
 
-                {/* Table Header using Divs */}
                 <table
                   className="report-table tax-register-table"
                   id="pdff"
-                  style={{ background: "transparent" }}
+                  style={{
+                    background: "transparent",
+                    borderCollapse: "collapse",
+                    width: "100%",
+                  }}
                 >
                   <thead className="thead">
                     <tr>
-                      <th
-                        className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "45px" }}
-                      >
-                        <span
-                          className="formatting"
-                          style={{ fontSize: "12px" }}
-                        >
-                          ખાતાનો નંબર
+                      <th className="th" style={{ maxWidth: "45px" }}>
+                        <span className="formatting">ક્રમ નંબર</span>
+                      </th>
+                      <th className="th" style={{ maxWidth: "90px" }}>
+                        <span className="formatting">વિસ્તારનું નામ</span>
+                      </th>
+                      <th className="th" style={{ maxWidth: "45px" }}>
+                        <span className="formatting"> કનેકશન નંબર </span>
+                      </th>
+                      <th className="th" style={{ maxWidth: "160px" }}>
+                        <span className="formatting">
+                          નળ ધારકનું નામ તથા મોબાઈલ નંબર
                         </span>
                       </th>
-
-                      <th
-                        className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "45px" }}
-                      >
-                        <span
-                          className="formatting"
-                          style={{ fontSize: "12px" }}
-                        >
-                          {" "}
-                          પ્રોપર્ટી નંબર
-                        </span>
+                      <th className="th" style={{ maxWidth: "45px" }}>
+                        <span className="formatting"> જુનો કનેક્શન નંબર </span>
                       </th>
-
-                      <th
-                        className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "90px" }}
-                      >
-                        <span className="formatting">એરિયાનું નામ</span>
+                      <th className="th" style={{ maxWidth: "45px" }}>
+                        <span className="formatting"> નળની સંખ્યા </span>
                       </th>
-
                       <th
                         className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "60px" }}
-                      >
-                        <span className="formatting">ખાતેદારનું નામ</span>
-                      </th>
-
-                      <th
-                        className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "45px" }}
-                      >
-                        <span className="formatting"> જૂનો મિ.નં. </span>
-                      </th>
-
-                      <th
-                        className="th"
-                        rowSpan="2"
                         style={{ minWidth: "70px", maxWidth: "70px" }}
                       >
-                        <span className="formatting">પહોચ નંબર તારીખ રકમ</span>
+                        <span className="formatting">પહોચ નં. / તારીખ રકમ</span>
                       </th>
-
-                      <th
-                        className="th"
-                        rowSpan="2"
-                        style={{ maxWidth: "90px" }}
-                      >
-                        <span className="formatting">વિગત</span>
+                      <th className="th" style={{ maxWidth: "90px" }}>
+                        <span className="formatting"> વિગત </span>
                       </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">ઘર વેરો</span>
+                      <th className="th">
+                        <span className="formatting"> પા.બા </span>
                       </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">સામાન્ય પાણી વેરો</span>
+                      <th className="th">
+                        <span className="formatting"> ચાલુ </span>
                       </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">ખાસ પાણી નળ વેરો</span>
+                      <th className="th">
+                        <span className="formatting"> કુલ </span>
                       </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">દિવાબતી લાઈટ વેરો</span>
-                      </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">સફાઈ વેરો</span>
-                      </th>
-
-                      <th
-                        className="th"
-                        colSpan="3"
-                        style={{ minWidth: "130px" }}
-                      >
-                        <span className="formatting">કુલ એકંદર</span>
-                      </th>
-
-                      <th
-                        className="th"
-                        style={{ maxWidth: "40px" }}
-                        rowSpan="2"
-                      >
-                        <span
-                          className="formatting"
-                          style={{ fontSize: "12px" }}
-                        >
-                          ગઈ સાલના જાદે
-                        </span>
+                      <th className="th">
+                        <span className="formatting"> નોંધ </span>
                       </th>
                     </tr>
 
                     <tr>
-                      {Array.from({ length: 6 }).map((_, index) => (
-                        <>
-                          <th className="th">
-                            <span className="formatting">પા.બા</span>
-                          </th>
-
-                          <th className="th">
-                            <span className="formatting">ચાલુ</span>
-                          </th>
-                          <th className="th">
-                            <span className="formatting">કુલ</span>
-                          </th>
-                        </>
-                      ))}
-                    </tr>
-
-                    {/* Index Start */}
-                    <tr>
-                      {/* 1 to 18 th for index */}
-                      {Array.from({ length: 26 }).map((_, index) => (
+                      {Array.from({ length: 11 }).map((_, index) => (
                         <th
-                          className="text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          className="text-xs font-medium uppercase tracking-wider"
                           style={{
                             textAlign: "center",
                             color: "black",
-                            background: "transparent",
+                            background: "white",
                           }}
                           key={index}
                         >
@@ -1452,29 +1246,17 @@ const TaxRegister = () => {
                         </th>
                       ))}
                     </tr>
-                    {/* Index End */}
                   </thead>
-
-                  {/* Table Rows using Divs */}
 
                   {item.pageRecords.map((record, index) => {
                     return (
-                      <tbody>
-                        <tr key={index} style={{ maxHeight: "3px" }}>
-                          <td
-                            rowSpan="3"
-                            style={{
-                              textAlign: "center",
-                              verticalAlign: "top",
-                              maxWidth: "30px",
-                              paddingTop: "5px",
-                            }}
-                          >
-                            <span className="formatting">
-                              {toGujaratiNumber(record[0])}
-                            </span>
-                          </td>
-
+                      // Yahan tbody me border-bottom lagaya gaya hai
+                      // taaki har 3 row ke baad (1 record hone par) ek bold divider line aaye.
+                      <tbody
+                        key={index}
+                        style={{ borderBottom: "3px solid #000" }}
+                      >
+                        <tr style={{ maxHeight: "3px" }}>
                           <td
                             rowSpan="3"
                             style={{
@@ -1499,6 +1281,20 @@ const TaxRegister = () => {
                           <td
                             rowSpan="3"
                             style={{
+                              textAlign: "center",
+                              verticalAlign: "top",
+                              maxWidth: "30px",
+                              paddingTop: "5px",
+                            }}
+                          >
+                            <span className="formatting">
+                              {toGujaratiNumber(Number(record[0] || 0) || "")}
+                            </span>
+                          </td>
+
+                          <td
+                            rowSpan="3"
+                            style={{
                               verticalAlign: "top",
                               maxWidth: "200px",
                               paddingTop: "5px",
@@ -1513,12 +1309,13 @@ const TaxRegister = () => {
                               }}
                             >
                               {record[3]}
+                              <br />
+                              {record[6]}
                             </span>
                           </td>
 
                           <td
                             rowSpan="3"
-                            // style={{ maxWidth: "150px" }}
                             style={{ verticalAlign: "top", paddingTop: "5px" }}
                           >
                             <span
@@ -1528,103 +1325,46 @@ const TaxRegister = () => {
                                 paddingTop: "5px",
                               }}
                             >
-                              {toGujaratiNumber(record[5])}
+                              {toGujaratiNumber(Number(record[5] || 0) || "")}
+                            </span>
+                          </td>
+
+                          <td
+                            rowSpan="3"
+                            style={{ verticalAlign: "top", paddingTop: "5px" }}
+                          >
+                            <span
+                              className="formatting"
+                              style={{
+                                verticalAlign: "top",
+                                paddingTop: "5px",
+                              }}
+                            >
+                              {toGujaratiNumber(Number(record[12] || 0) || "")}
                             </span>
                           </td>
 
                           <td style={{ minWidth: "100px", maxWidth: "100px" }}>
-                            <span className="formatting">{""}</span>
+                            <span className="formatting">
+                              {(() => {
+                                const receipt =
+                                  JSON.parse(record[24] || "{}")?.receipt ||
+                                  null;
+
+                                return Array.isArray(receipt)
+                                  ? receipt
+                                    .map((r) => r?.pNo)
+                                    .filter(Boolean)
+                                    .join(", ")
+                                  : receipt?.pNo || "";
+                              })()}
+                            </span>
                           </td>
 
                           <th className="td" style={{ textWrap: "nowrap" }}>
                             <span className="formatting">માંગણું</span>
                           </th>
 
-                          {/* ઘર વેરો */}
-                          <td
-                            className="td"
-                            style={{ textAlign: "right", minWidth: "60px" }}
-                          >
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(Number(record[22]) || "")}
-                            </span>
-                          </td>
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {/* {JSON.parse(record[24] || "{}")?.[0]?.curr || ' '} */}
-                              {toGujaratiNumber(Number(record[20]) || "")}
-                            </span>
-                          </td>
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {/* {(JSON.parse(record[23] || "{}")?.[0]?.curr ||
-                                0) +
-                                (JSON.parse(record[23] || "{}")?.[0]?.prev ||
-                                  " ")} */}
-                              {toGujaratiNumber(
-                                Number(record[20] || " ") +
-                                Number(record[22] || " "),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* [{ "curr": 20, "prev": 0 }, { "curr": 0, "prev": 0 }, { "curr": 0, "prev": 0 }] */}
-                          {/* સામાન્ય પાણી વેરો */}
-                          <td
-                            className="td"
-                            style={{ textAlign: "right", minWidth: "60px" }}
-                          >
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.normal_water
-                                  ?.prev || " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.normal_water
-                                  ?.curr || " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  JSON.parse(record[21] || "{}")?.normal_water
-                                    ?.curr || " ",
-                                ) +
-                                Number(
-                                  JSON.parse(record[23] || "{}")?.normal_water
-                                    ?.prev || " ",
-                                ),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ખાસ પાણી નળ વેરો */}
                           <td
                             className="td"
                             style={{ textAlign: "right", minWidth: "60px" }}
@@ -1670,219 +1410,41 @@ const TaxRegister = () => {
                             </span>
                           </td>
 
-                          {/* દિવાબતી લાઈટ વેરો */}
                           <td
-                            className="td"
-                            style={{ textAlign: "right", minWidth: "60px" }}
+                            rowSpan="3"
+                            style={{ verticalAlign: "top", paddingTop: "5px" }}
                           >
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.light?.prev ||
-                                " ",
-                              )}
-                            </span>
+                            <span className="formatting">{record[14]}</span>
                           </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.light?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  JSON.parse(record[21] || "{}")?.light?.curr ||
-                                  " ",
-                                ) +
-                                Number(
-                                  JSON.parse(record[23] || "{}")?.light
-                                    ?.prev || " ",
-                                ),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* સફાઈ વેરો */}
-                          <td
-                            className="td"
-                            style={{ textAlign: "right", minWidth: "60px" }}
-                          >
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  JSON.parse(record[23] || "{}")?.cleaning
-                                    ?.prev,
-                                ) || " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  JSON.parse(record[21] || "{}")?.cleaning
-                                    ?.curr,
-                                ) || " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  JSON.parse(record[21] || "{}")?.cleaning
-                                    ?.curr || " ",
-                                ) +
-                                Number(
-                                  JSON.parse(record[23] || "{}")?.cleaning
-                                    ?.prev || " ",
-                                ),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* કુલ એકંદર */}
-                          <td
-                            className="td"
-                            style={{ textAlign: "right", minWidth: "60px" }}
-                          >
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  Number(record[22] || " ") +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")
-                                      ?.normal_water?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")
-                                      ?.special_water?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")?.light
-                                      ?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")?.cleaning
-                                      ?.prev || " ",
-                                  ),
-                                ) || " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  Number(record[20] || " ") +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")
-                                      ?.normal_water?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")
-                                      ?.special_water?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")?.light
-                                      ?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")?.cleaning
-                                      ?.curr || " ",
-                                  ),
-                                ) || "",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span
-                              className="formatting"
-                              style={{ textWrap: "nowrap" }}
-                            >
-                              {toGujaratiNumber(
-                                Number(
-                                  Number(record[20] || " ") +
-                                  Number(record[22] || " ") +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")
-                                      ?.normal_water?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")
-                                      ?.special_water?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")?.light
-                                      ?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[21] || "{}")?.cleaning
-                                      ?.curr || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")
-                                      ?.normal_water?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")
-                                      ?.special_water?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")?.light
-                                      ?.prev || " ",
-                                  ) +
-                                  Number(
-                                    JSON.parse(record[23] || "{}")?.cleaning
-                                      ?.prev || " ",
-                                  ),
-                                ) || "",
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ગઈ સાલના જાદે */}
-                          <td className="td" rowSpan={3}></td>
                         </tr>
 
                         <tr style={{ maxHeight: "3px" }}>
-                          <th>
-                            <span className="formatting">{""}</span>
-                          </th>
+                          <td style={{ minWidth: "100px", maxWidth: "100px" }}>
+                            <span className="formatting">
+                              {(() => {
+                                const receipt =
+                                  JSON.parse(record[24] || "{}")?.receipt ||
+                                  null;
 
+                                const formatDate = (date) =>
+                                  date
+                                    ? date
+                                      .replace(/"/g, "")
+                                      .trim()
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")
+                                    : "";
+
+                                return Array.isArray(receipt)
+                                  ? receipt
+                                    .map((r) => formatDate(r?.date))
+                                    .filter(Boolean)
+                                    .join(", ")
+                                  : formatDate(receipt?.date) || "-";
+                              })()}
+                            </span>
+                          </td>
                           <th className="td" style={{ maxHeight: "4x" }}>
                             <span
                               className="formatting"
@@ -1891,196 +1453,51 @@ const TaxRegister = () => {
                               વસુલાત
                             </span>
                           </th>
-
-                          {/* ઘર વેરો */}
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.[1]?.prev ||
-                                " ",
+                                JSON.parse(record[23] || "{}")?.special_water
+                                  ?.vasulat || " ",
                               )}
                             </span>
                           </td>
-
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.[1]?.curr ||
-                                " ",
+                                JSON.parse(record[21] || "{}")?.special_water
+                                  ?.vasulat || " ",
                               )}
                             </span>
                           </td>
-
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                (JSON.parse(record[21] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[21] || "{}")?.[1]?.prev ||
-                                  " "),
+                                (JSON.parse(record[23] || "{}")?.special_water
+                                  ?.vasulat || " ") +
+                                (JSON.parse(record[21] || "{}")?.special_water
+                                  ?.vasulat || " "),
                               )}
                             </span>
                           </td>
-
-                          {/* સામાન્ય પાણી વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[22] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[22] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[22] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[22] || "{}")?.[1]?.prev ||
-                                  " "),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ખાસ પાણી નળ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[23] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[23] || "{}")?.[1]?.prev ||
-                                  " "),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* દિવાબતી લાઈટ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[24] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[24] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[24] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[24] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* સફાઈ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[25] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[25] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[25] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[25] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* કુલ એકંદર */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[26] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[26] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[26] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[26] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ગઈ સાલના જાદે */}
-                          {/* <td className="td"></td> */}
                         </tr>
 
                         <tr>
-                          <th>
-                            <span className="formatting">{""}</span>
-                          </th>
+                          <td style={{ minWidth: "100px", maxWidth: "100px" }}>
+                            <span className="formatting">
+                              {(() => {
+                                const receipt = JSON.parse(
+                                  record[24] || "{}",
+                                )?.receipt;
 
+                                return Array.isArray(receipt)
+                                  ? receipt
+                                    .map((r) => r?.amount)
+                                    .filter(Boolean)
+                                    .join(", ")
+                                  : receipt?.amount || "";
+                              })()}
+                            </span>
+                          </td>
                           <th className="td">
                             <span
                               className="formatting"
@@ -2089,479 +1506,228 @@ const TaxRegister = () => {
                               બાકી
                             </span>
                           </th>
-
-                          {/* ઘર વેરો */}
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.[1]?.prev ||
-                                " ",
+                                Number(
+                                  JSON.parse(record[23] || "{}")?.special_water
+                                    ?.prev,
+                                ) -
+                                Number(
+                                  JSON.parse(record[23] || "{}")
+                                    ?.special_water?.vasulat,
+                                ) || " ",
                               )}
                             </span>
                           </td>
-
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                JSON.parse(record[21] || "{}")?.[1]?.curr ||
-                                " ",
+                                Number(
+                                  JSON.parse(record[21] || "{}")?.special_water
+                                    ?.curr,
+                                ) -
+                                Number(
+                                  JSON.parse(record[21] || "{}")
+                                    ?.special_water?.vasulat,
+                                ) || " ",
                               )}
                             </span>
                           </td>
-
                           <td className="td" style={{ textAlign: "right" }}>
                             <span className="formatting">
                               {toGujaratiNumber(
-                                (JSON.parse(record[21] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[21] || "{}")?.[1]?.prev ||
-                                  0),
+                                Number(
+                                  JSON.parse(record[23] || "{}")?.special_water
+                                    ?.prev,
+                                ) -
+                                Number(
+                                  JSON.parse(record[23] || "{}")
+                                    ?.special_water?.vasulat,
+                                ) +
+                                Number(
+                                  JSON.parse(record[21] || "{}")
+                                    ?.special_water?.curr,
+                                ) -
+                                Number(
+                                  JSON.parse(record[21] || "{}")
+                                    ?.special_water?.vasulat,
+                                ) || " ",
                               )}
                             </span>
                           </td>
-
-                          {/* સામાન્ય પાણી વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[22] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[22] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[22] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[22] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ખાસ પાણી નળ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[23] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[23] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[23] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* દિવાબતી લાઈટ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[24] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[24] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[24] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[24] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* સફાઈ વેરો */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[25] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[25] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[25] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[25] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* કુલ એકંદર */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[26] || "{}")?.[1]?.prev ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                JSON.parse(record[26] || "{}")?.[1]?.curr ||
-                                " ",
-                              )}
-                            </span>
-                          </td>
-
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                (JSON.parse(record[26] || "{}")?.[1]?.curr ||
-                                  " ") +
-                                (JSON.parse(record[26] || "{}")?.[1]?.prev ||
-                                  0),
-                              )}
-                            </span>
-                          </td>
-
-                          {/* ગઈ સાલના જાદે */}
-                          {/* <td className="td"></td> */}
                         </tr>
                       </tbody>
                     );
                   })}
 
-                  <tr>
-                    <td colSpan="25" style={{ maxHeight: "4px" }}></td>
-                  </tr>
-
-                  <tr>
-                    <td
-                      colSpan="6"
-                      rowSpan="3"
-                      style={{
-                        textAlign: "center",
-                        color: "#000",
-                        background: "transparent",
-                      }}
-                    >
-                      પાનાનું કુલ
-                    </td>
-                    <th className="td">
-                      <span className="formatting">માંગણું</span>
-                    </th>
-                    {Array.from({ length: 6 }).map((_, categoryIndex) => {
-                      let prevForCategory = 0;
-
-                      if (categoryIndex === 0) {
-                        prevForCategory = item.pageRecords.reduce(
-                          (sum, record) => {
-                            return sum + Number(record[22] || " ");
-                          },
-                          0,
-                        );
-                      } else {
-                        prevForCategory = item.pageRecords.reduce(
+                  <tbody>
+                    <tr>
+                      <td colSpan="25" style={{ maxHeight: "4px" }}></td>
+                    </tr>
+                    <tr>
+                      <td
+                        colSpan="7"
+                        rowSpan="3"
+                        style={{
+                          textAlign: "center",
+                          color: "#000",
+                          background: "transparent",
+                        }}
+                      >
+                        પાનાનું કુલ
+                      </td>
+                      <th className="td">
+                        <span className="formatting">માંગણું</span>
+                      </th>
+                      {Array.from({ length: 1 }).map((_, categoryIndex) => {
+                        let prevForCategory = item.pageRecords.reduce(
                           (sum, record) => {
                             const taxData = JSON.parse(record[23] || "{}");
-
-                            if (categoryIndex === 1) {
-                              return (
-                                sum + Number(taxData?.normal_water?.prev || " ")
-                              );
-                            } else if (categoryIndex === 2) {
-                              return (
-                                sum +
-                                Number(taxData?.special_water?.prev || " ")
-                              );
-                            } else if (categoryIndex === 3) {
-                              return sum + Number(taxData?.light?.prev || " ");
-                            } else if (categoryIndex === 4) {
-                              return (
-                                sum + Number(taxData?.cleaning?.prev || " ")
-                              );
-                            } else if (categoryIndex === 5) {
-                              return (
-                                sum +
-                                (Number(taxData?.normal_water?.prev || " ") +
-                                  Number(taxData?.special_water?.prev || " ") +
-                                  Number(taxData?.light?.prev || " ") +
-                                  Number(taxData?.cleaning?.prev || " ") +
-                                  Number(record[22] || " "))
-                              );
-                            }
+                            return (
+                              sum + Number(taxData?.special_water?.prev || " ")
+                            );
                           },
                           0,
                         );
-                      }
 
-                      let currForCategory = 0;
-
-                      if (categoryIndex === 0) {
-                        currForCategory = item.pageRecords.reduce(
-                          (sum, record) => {
-                            return sum + Number(record[20] || " ");
-                          },
-                          0,
-                        );
-                      } else {
-                        currForCategory = item.pageRecords.reduce(
+                        let currForCategory = item.pageRecords.reduce(
                           (sum, record) => {
                             const taxData = JSON.parse(record[21] || "{}");
-
-                            if (categoryIndex === 1) {
-                              return (
-                                sum + Number(taxData?.normal_water?.curr || " ")
-                              );
-                            } else if (categoryIndex === 2) {
-                              return (
-                                sum +
-                                Number(taxData?.special_water?.curr || " ")
-                              );
-                            } else if (categoryIndex === 3) {
-                              return sum + Number(taxData?.light?.curr || " ");
-                            } else if (categoryIndex === 4) {
-                              return (
-                                sum + Number(taxData?.cleaning?.curr || " ")
-                              );
-                            } else if (categoryIndex === 5) {
-                              return (
-                                sum +
-                                (Number(taxData?.normal_water?.curr || " ") +
-                                  Number(taxData?.special_water?.curr || " ") +
-                                  Number(taxData?.light?.curr || " ") +
-                                  Number(taxData?.cleaning?.curr || " ") +
-                                  Number(record[20] || " "))
-                              );
-                            }
+                            return (
+                              sum + Number(taxData?.special_water?.curr || " ")
+                            );
                           },
                           0,
                         );
-                      }
 
-                      return (
-                        <React.Fragment key={categoryIndex}>
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(prevForCategory, 1) || ""}
-                            </span>
-                          </td>
+                        return (
+                          <React.Fragment key={categoryIndex}>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(prevForCategory, 1) || ""}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(currForCategory)}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(
+                                  prevForCategory + currForCategory,
+                                )}
+                              </span>
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+                      <td className="td" rowSpan={3}></td>
+                    </tr>
+                    <tr>
+                      <th className="td">
+                        <span className="formatting">વસુલાત</span>
+                      </th>
+                      {Array.from({ length: 1 }).map((_, categoryIndex) => {
+                        let prevForCategory = item.pageRecords.reduce(
+                          (sum, record) => {
+                            const taxData = JSON.parse(record[23] || "{}");
+                            return (
+                              sum +
+                              Number(taxData?.special_water?.vasulat || " ")
+                            );
+                          },
+                          0,
+                        );
 
-                          {/* પા.બા */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(currForCategory)}
-                            </span>
-                          </td>
+                        let currForCategory = item.pageRecords.reduce(
+                          (sum, record) => {
+                            const taxData = JSON.parse(record[21] || "{}");
+                            return (
+                              sum +
+                              Number(taxData?.special_water?.vasulat || " ")
+                            );
+                          },
+                          0,
+                        );
 
-                          {/* ચાલુ */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(
-                                prevForCategory + currForCategory,
-                              )}
-                            </span>
-                          </td>
-                          {/* કુલ */}
-                        </React.Fragment>
-                      );
-                    })}
+                        return (
+                          <React.Fragment key={categoryIndex}>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(prevForCategory)}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(currForCategory)}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(
+                                  Number(prevForCategory + currForCategory),
+                                )}
+                              </span>
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+                    </tr>
+                    <tr>
+                      <th className="td">
+                        <span className="formatting">બાકી</span>
+                      </th>
+                      {Array.from({ length: 1 }).map((_, categoryIndex) => {
+                        let prevForCategory = item.pageRecords.reduce(
+                          (sum, record) => {
+                            const taxData = JSON.parse(record[23] || "{}");
+                            return (
+                              sum +
+                              (Number(taxData?.special_water?.prev || " ") -
+                                Number(taxData?.special_water?.vasulat || " "))
+                            );
+                          },
+                          0,
+                        );
 
-                    <td className="td" rowSpan={3}></td>
+                        let currForCategory = item.pageRecords.reduce(
+                          (sum, record) => {
+                            const taxData = JSON.parse(record[21] || "{}");
+                            return (
+                              sum +
+                              (Number(taxData?.special_water?.curr || " ") -
+                                Number(taxData?.special_water?.vasulat || " "))
+                            );
+                          },
+                          0,
+                        );
 
-                    {/* The last 'કુલ એકંદર' Demand totals (already calculated in pageTotals.demand) */}
-                    {/* <td className="td">{pageTotals.demand.prev}</td> 
-                  <td className="td">{pageTotals.demand.curr}</td>  
-                  <td className="td">{pageTotals.demand.total}</td>  */}
-                  </tr>
-
-                  <tr>
-                    <th className="td">
-                      <span className="formatting">વસુલાત</span>
-                    </th>
-
-                    {Array.from({ length: 6 }).map((_, categoryIndex) => {
-                      const recordColumnIndex = 21 + categoryIndex;
-                      const totalForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return (
-                            sum +
-                            (taxData?.[1]?.prev || " ") +
-                            (taxData?.[1]?.curr || " ")
-                          );
-                        },
-                        0,
-                      );
-                      const prevForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return sum + (taxData?.[1]?.prev || " ");
-                        },
-                        0,
-                      );
-                      const currForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return sum + (taxData?.[1]?.curr || " ");
-                        },
-                        0,
-                      );
-
-                      return (
-                        <React.Fragment key={categoryIndex}>
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(prevForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* પા.બા */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(currForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* ચાલુ */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(totalForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* કુલ */}
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* <td className="td"></td> */}
-
-                    {/* 'કુલ એકંદર' Collection totals */}
-                    {/* <td className="td">{pageTotals.collection.prev}</td>
-                  <td className="td">{pageTotals.collection.curr}</td>
-                  <td className="td">{pageTotals.collection.total}</td> */}
-                  </tr>
-
-                  {/* Outstanding Row: બાકી */}
-                  <tr>
-                    <th className="td">
-                      <span className="formatting">બાકી</span>
-                    </th>
-                    {Array.from({ length: 6 }).map((_, categoryIndex) => {
-                      const recordColumnIndex = 21 + categoryIndex;
-                      const totalForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return (
-                            sum +
-                            (taxData?.[2]?.prev || " ") +
-                            (taxData?.[2]?.curr || " ")
-                          );
-                        },
-                        0,
-                      );
-                      const prevForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return sum + (taxData?.[2]?.prev || " ");
-                        },
-                        0,
-                      );
-                      const currForCategory = item.pageRecords.reduce(
-                        (sum, record) => {
-                          const taxData = JSON.parse(
-                            record[recordColumnIndex] || "{}",
-                          );
-                          return sum + (taxData?.[2]?.curr || " ");
-                        },
-                        0,
-                      );
-
-                      return (
-                        <React.Fragment key={categoryIndex}>
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(prevForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* પા.બા */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(currForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* ચાલુ */}
-                          <td className="td" style={{ textAlign: "right" }}>
-                            <span className="formatting">
-                              {toGujaratiNumber(totalForCategory)}
-                            </span>
-                          </td>{" "}
-                          {/* કુલ */}
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* <td className="td"></td> */}
-
-                    {/* 'કુલ એકંદર' Outstanding totals */}
-                    {/* <td className="td">{pageTotals.outstanding.prev}</td> 
-                  <td className="td">{pageTotals.outstanding.curr}</td> 
-                  <td className="td">{pageTotals.outstanding.total}</td> */}
-                  </tr>
+                        return (
+                          <React.Fragment key={categoryIndex}>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(prevForCategory)}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(currForCategory)}
+                              </span>
+                            </td>
+                            <td className="td" style={{ textAlign: "right" }}>
+                              <span className="formatting">
+                                {toGujaratiNumber(
+                                  prevForCategory + currForCategory,
+                                )}
+                              </span>
+                            </td>
+                          </React.Fragment>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
                 </table>
               </div>
             </div>
